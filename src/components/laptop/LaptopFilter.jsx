@@ -4,14 +4,6 @@ import { Button, Form, InputGroup } from 'react-bootstrap';
 
 const RAM_OPTIONS = [8, 16, 32];
 
-/**
- * E3. Bộ lọc dạng controlled, không tự đọc URL.
- *
- * filters: giá trị bộ lọc hiện tại.
- * onChange: callback nhận phần thay đổi.
- * onReset: callback xóa toàn bộ bộ lọc.
- * idPrefix: giúp tránh trùng ID khi render nhiều bộ lọc.
- */
 export default function LaptopFilter({
   brands = [],
   categories = [],
@@ -23,22 +15,39 @@ export default function LaptopFilter({
   const [priceMin, setPriceMin] = useState(filters.priceMin ?? '');
   const [priceMax, setPriceMax] = useState(filters.priceMax ?? '');
 
+  // Đồng bộ giá trị khi bộ lọc bên ngoài thay đổi.
   useEffect(() => {
     setPriceMin(filters.priceMin ?? '');
     setPriceMax(filters.priceMax ?? '');
   }, [filters.priceMin, filters.priceMax]);
 
+  // Kiểm tra giá âm và khoảng giá không hợp lệ.
   const priceInvalid =
-    priceMin !== '' &&
-    priceMax !== '' &&
-    Number(priceMin) > Number(priceMax);
+    (priceMin !== '' && Number(priceMin) < 0) ||
+    (priceMax !== '' && Number(priceMax) < 0) ||
+    (priceMin !== '' &&
+      priceMax !== '' &&
+      Number(priceMin) > Number(priceMax));
+
+  const priceError =
+    priceMin !== '' && Number(priceMin) < 0
+      ? 'Giá tối thiểu không được âm.'
+      : priceMax !== '' && Number(priceMax) < 0
+        ? 'Giá tối đa không được âm.'
+        : 'Giá tối thiểu phải nhỏ hơn hoặc bằng giá tối đa.';
 
   const applyPrice = (event) => {
     event.preventDefault();
 
-    if (!priceInvalid) {
-      onChange({ priceMin, priceMax });
-    }
+    if (priceInvalid) return;
+
+    onChange({ priceMin, priceMax });
+  };
+
+  const resetFilters = () => {
+    setPriceMin('');
+    setPriceMax('');
+    onReset();
   };
 
   return (
@@ -72,7 +81,7 @@ export default function LaptopFilter({
 
       <Form.Check
         type="radio"
-        id={`${idPrefix}-cat-all`}
+        id={`${idPrefix}-category-all`}
         name={`${idPrefix}-category`}
         label="Tất cả"
         checked={!filters.categoryId}
@@ -83,7 +92,7 @@ export default function LaptopFilter({
         <Form.Check
           key={category.id}
           type="radio"
-          id={`${idPrefix}-cat-${category.id}`}
+          id={`${idPrefix}-category-${category.id}`}
           name={`${idPrefix}-category`}
           label={category.name}
           checked={filters.categoryId === String(category.id)}
@@ -128,7 +137,7 @@ export default function LaptopFilter({
           />
 
           <Form.Control.Feedback type="invalid">
-            Giá từ phải nhỏ hơn hoặc bằng giá đến.
+            {priceError}
           </Form.Control.Feedback>
         </InputGroup>
 
@@ -166,7 +175,7 @@ export default function LaptopFilter({
         variant="outline-secondary"
         size="sm"
         className="w-100 mt-4"
-        onClick={onReset}
+        onClick={resetFilters}
       >
         Xóa bộ lọc
       </Button>
