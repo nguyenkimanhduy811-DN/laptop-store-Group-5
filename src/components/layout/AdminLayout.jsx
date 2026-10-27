@@ -1,10 +1,12 @@
-
 import { Col, Container, Nav, Row } from 'react-bootstrap';
 import { NavLink, Outlet } from 'react-router-dom';
-import AppNavbar from './AppNavbar';
 
-/** F1. Layout quản trị: Navbar + sidebar + nội dung trang */
+import AppNavbar from './AppNavbar';
+import useFlashMessage from '../../hooks/useFlashMessage';
+
 export default function AdminLayout() {
+  useFlashMessage();
+
   return (
     <div className="d-flex flex-column min-vh-100">
       <AppNavbar />
