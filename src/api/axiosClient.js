@@ -39,4 +39,73 @@ const getDuration = (config) =>
     ? Math.round(performance.now() - config.metadata.start)
     : 0;
 
+
+    
+/* B3 + B4. Response interceptor */
+const STATUS_MESSAGES = {
+  400: 'Dữ liệu gửi lên không hợp lệ',
+  401: 'Phiên đăng nhập đã hết hạn',
+  403: 'Bạn không có quyền thực hiện thao tác này',
+  404: 'Không tìm thấy dữ liệu',
+};
+
+axiosClient.interceptors.response.use(
+  // B3. Thành công: trả về nguyên response để đọc header x-total-count
+  (response) => {
+    response.duration = getDuration(response.config);
+
+    if (import.meta.env.DEV) {
+      console.log(
+        `[API] ${response.status} ${response.config.method.toUpperCase()} ${response.config.url} – ${response.duration}ms`
+      );
+    }
+
+    return response;
+  },
+
+  // B4. Chuẩn hóa lỗi
+  (error) => {
+    // Giữ nguyên lỗi hủy request
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
+    const status = error.response?.status ?? null;
+    let message;
+
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      message = 'Yêu cầu quá thời gian, vui lòng thử lại';
+    } else if (!error.response) {
+      message = 'Không kết nối được máy chủ. Kiểm tra json-server đã chạy chưa?';
+    } else if (status >= 500) {
+      message = 'Máy chủ đang gặp sự cố';
+    } else {
+      message = STATUS_MESSAGES[status] ?? `Có lỗi xảy ra (mã ${status})`;
+    }
+
+    if (status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      // AuthContext (#8) lắng nghe sự kiện này để cập nhật giao diện
+      window.dispatchEvent(new Event('auth:logout'));
+    }
+
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[API] Lỗi ${status ?? ''} ${error.config?.url ?? ''} – ${message}`
+      );
+    }
+
+    return Promise.reject({ status, message });
+  }
+);
+
+/** Export lại để component không phải import axios trực tiếp (TECH-01) */
+export const isCancel = axios.isCancel;
+
+/** Lấy câu thông báo từ một lỗi bất kỳ */
+export const getErrorMessage = (err) =>
+  err?.message || 'Có lỗi xảy ra, vui lòng thử lại';
+
+
 export default axiosClient;
