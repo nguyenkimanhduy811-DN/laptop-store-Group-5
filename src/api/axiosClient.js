@@ -14,4 +14,29 @@ const axiosClient = axios.create({
   paramsSerializer: { indexes: null },
 });
 
+// B2. Request interceptor: gắn token, ghi thời điểm bắt đầu, log
+axiosClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  config.metadata = { start: performance.now() };
+
+  if (import.meta.env.DEV) {
+    console.log(
+      `[API] ${config.method.toUpperCase()} ${config.url}`,
+      config.params ?? ''
+    );
+  }
+
+  return config;
+});
+
+const getDuration = (config) =>
+  config?.metadata
+    ? Math.round(performance.now() - config.metadata.start)
+    : 0;
+
 export default axiosClient;
