@@ -53,9 +53,25 @@
     {"id": 19, "name": "Lenovo ThinkPad X1 Carbon Gen 12", "brandId": 4, "categoryId": 4, "price": 48990000, "salePrice": 45990000, "cpu": "Intel Core Ultra 7 165U", "ram": 32, "storage": 1024, "screen": "14 inch 2.8K OLED", "gpu": "Intel Graphics", "weight": 1.09, "stock": 6, "sold": 40, "rating": 4.8, "image": "https://placehold.co/600x400/e9ecef/212529?text=Lenovo+ThinkPad+X1+Carbon+Gen+12", "description": "Siêu nhẹ 1.09kg, biểu tượng laptop doanh nhân.", "createdAt": "2026-10-05T08:00:00Z"},
     {"id": 20, "name": "HP ZBook Firefly 14 G11", "brandId": 5, "categoryId": 3, "price": 39990000, "salePrice": null, "cpu": "Intel Core Ultra 7 155H", "ram": 32, "storage": 1024, "screen": "14 inch WUXGA", "gpu": "NVIDIA RTX A500 4GB", "weight": 1.45, "stock": 4, "sold": 18, "rating": 4.4, "image": "https://placehold.co/600x400/e9ecef/212529?text=HP+ZBook+Firefly+14+G11", "description": "Máy trạm mỏng nhẹ đạt chứng nhận ISV.", "createdAt": "2026-07-07T08:00:00Z"}
   ],
-  "reviews": [],
+ 
+  "reviews": [
+    {"id": 1, "laptopId": 1, "userId": 2, "userName": "Nguyễn Văn An", "rating": 5, "comment": "Máy đẹp, màn hình sắc nét.", "createdAt": "2026-09-11T10:00:00Z"},
+    {"id": 2, "laptopId": 3, "userId": 2, "userName": "Nguyễn Văn An", "rating": 4, "comment": "Chơi game mượt nhưng hơi nóng.", "createdAt": "2026-09-12T10:00:00Z"},
+    {"id": 3, "laptopId": 2, "userId": 2, "userName": "Nguyễn Văn An", "rating": 5, "comment": "Pin rất trâu, dùng cả ngày không cần sạc.", "createdAt": "2026-09-13T10:00:00Z"},
+    {"id": 4, "laptopId": 7, "userId": 2, "userName": "Nguyễn Văn An", "rating": 5, "comment": "Dựng video 4K rất mượt.", "createdAt": "2026-09-14T10:00:00Z"},
+    {"id": 5, "laptopId": 6, "userId": 2, "userName": "Nguyễn Văn An", "rating": 4, "comment": "Giá tốt, cấu hình ổn trong tầm tiền.", "createdAt": "2026-09-15T10:00:00Z"},
+    {"id": 6, "laptopId": 9, "userId": 2, "userName": "Nguyễn Văn An", "rating": 5, "comment": "Màn OLED quá đẹp.", "createdAt": "2026-09-16T10:00:00Z"},
+    {"id": 7, "laptopId": 10, "userId": 2, "userName": "Nguyễn Văn An", "rating": 4, "comment": "Hiệu năng mạnh, quạt hơi ồn khi tải nặng.", "createdAt": "2026-09-17T10:00:00Z"},
+    {"id": 8, "laptopId": 14, "userId": 2, "userName": "Nguyễn Văn An", "rating": 4, "comment": "Đủ dùng cho học tập.", "createdAt": "2026-09-18T10:00:00Z"},
+    {"id": 9, "laptopId": 19, "userId": 2, "userName": "Nguyễn Văn An", "rating": 5, "comment": "Nhẹ, bàn phím gõ sướng.", "createdAt": "2026-09-19T10:00:00Z"},
+    {"id": 10, "laptopId": 5, "userId": 2, "userName": "Nguyễn Văn An", "rating": 4, "comment": "Loa hay, màn hình lớn dễ nhìn.", "createdAt": "2026-09-20T10:00:00Z"},
+    {"id": 11, "laptopId": 12, "userId": 2, "userName": "Nguyễn Văn An", "rating": 4, "comment": "Thiết kế đẹp, mỏng.", "createdAt": "2026-09-21T10:00:00Z"},
+    {"id": 12, "laptopId": 16, "userId": 2, "userName": "Nguyễn Văn An", "rating": 5, "comment": "Tản nhiệt tốt, chơi game lâu không nóng.", "createdAt": "2026-09-22T10:00:00Z"}
+  ],
   "cartItems": [],
   "orders": []
 }
+
+
 
 
