@@ -1,21 +1,22 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getErrorMessage, isCancel } from '../api/axiosClient';
 
 /**
- * H1. Gom logic loading / data / error / AbortController.
+ * H1. Custom hook gom logic loading / data / error / AbortController.
  *
- * Mỗi lần deps thay đổi:
- * - Hủy request cũ.
- * - Gửi request mới.
- * - Bỏ qua lỗi do request bị hủy.
+ * - Mỗi lần deps đổi: hủy request cũ rồi gọi request mới.
+ * - Bỏ qua lỗi hủy request.
+ * - refetch(): gọi lại request.
+ * - setData: cập nhật dữ liệu cục bộ.
  */
 export default function useAxios(fetcher, deps = []) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // Luôn sử dụng phiên bản fetcher mới nhất.
+  // Luôn dùng phiên bản fetcher mới nhất.
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
@@ -29,12 +30,10 @@ export default function useAxios(fetcher, deps = []) {
       try {
         const result = await fetcherRef.current(controller.signal);
 
-        // Không cập nhật dữ liệu nếu request đã bị hủy.
         if (controller.signal.aborted) return;
 
         setData(result);
       } catch (err) {
-        // Không hiển thị lỗi khi request bị hủy.
         if (isCancel(err) || controller.signal.aborted) return;
 
         setError(getErrorMessage(err));
@@ -47,11 +46,16 @@ export default function useAxios(fetcher, deps = []) {
 
     run();
 
-    // Hủy request khi deps thay đổi hoặc component bị unmount.
+    // Hủy request cũ khi deps đổi hoặc component unmount.
     return () => controller.abort();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, reloadKey]);
 
-  return { data, loading, error };
+  // Gọi lại request khi cần.
+  const refetch = useCallback(() => {
+    setReloadKey((key) => key + 1);
+  }, []);
+
+  return { data, loading, error, refetch, setData };
 }
