@@ -1,15 +1,16 @@
-
 import { useEffect } from 'react';
 import { Container } from 'react-bootstrap';
 import { Outlet, useLocation } from 'react-router-dom';
+
 import AppNavbar from './AppNavbar';
 import Footer from './Footer';
+import useFlashMessage from '../../hooks/useFlashMessage';
 
-/** F1. Layout khách hàng: Navbar + nội dung trang + Footer */
 export default function MainLayout() {
   const { pathname } = useLocation();
 
-  // Chuyển trang → cuộn lên đầu
+  useFlashMessage();
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
