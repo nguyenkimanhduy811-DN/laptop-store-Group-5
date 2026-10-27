@@ -1,0 +1,33 @@
+
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "admin@laptopstore.vn",
+      "password": "123456",
+      "fullName": "Quản trị viên",
+      "role": "admin"
+    },
+    {
+      "id": 2,
+      "email": "khach@laptopstore.vn",
+      "password": "123456",
+      "fullName": "Nguyễn Văn An",
+      "role": "customer"
+    }
+  ],
+  "brands": [
+    { "id": 1, "name": "Dell" },
+    { "id": 2, "name": "Apple" },
+    { "id": 3, "name": "Asus" },
+    { "id": 4, "name": "Lenovo" },
+    { "id": 5, "name": "HP" },
+    { "id": 6, "name": "Acer" }
+  ],
+  "categories": [
+    { "id": 1, "name": "Văn phòng" },
+    { "id": 2, "name": "Gaming" },
+    { "id": 3, "name": "Đồ họa – Kỹ thuật" },
+    { "id": 4, "name": "Mỏng nhẹ" }
+  ]
+}
