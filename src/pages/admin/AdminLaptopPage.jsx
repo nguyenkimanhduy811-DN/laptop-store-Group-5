@@ -12,6 +12,7 @@ import { handleImageError } from '../../utils/image';
 import Loading from '../../components/common/Loading';
 import ErrorAlert from '../../components/common/ErrorAlert';
 import EmptyState from '../../components/common/EmptyState';
+import ConfirmModal from '../../components/common/ConfirmModal';
 import AppPagination from '../../components/common/AppPagination';
 
 const ADMIN_PAGE_SIZE = 10;
@@ -35,6 +36,7 @@ export default function AdminLaptopPage() {
   const items = data?.items ?? [];
   const totalPages = data ? Math.ceil(data.total / ADMIN_PAGE_SIZE) : 0;
 
+  const [toDelete, setToDelete] = useState(null);
   const [editingStock, setEditingStock] = useState(null); // { id, value }
   const [savingStock, setSavingStock] = useState(false);
 
@@ -54,6 +56,30 @@ export default function AdminLaptopPage() {
     if (p <= 1) next.delete('page');
     else next.set('page', p);
     setSearchParams(next);
+  };
+
+  /** Xoá xong: trang hiện tại rỗng → lùi về trang trước, ngược lại tải lại để lấp chỗ trống */
+  const afterDelete = (remainingOnPage) => {
+    if (remainingOnPage === 0 && page > 1) goToPage(page - 1);
+    else refetch();
+  };
+
+  /* ---------------- H4. Xoá 1 laptop – optimistic ---------------- */
+  const deleteOne = async () => {
+    const laptop = toDelete;
+    setToDelete(null);
+
+    const snapshot = data; // 1. lưu bản sao
+    setData((prev) => ({ ...prev, items: prev.items.filter((i) => i.id !== laptop.id), total: prev.total - 1 })); // 2. xoá ngay
+
+    try {
+      await laptopApi.remove(laptop.id); // 3. gọi API
+      showToast(`Đã xóa "${laptop.name}"`);
+      afterDelete(snapshot.items.length - 1);
+    } catch {
+      setData(snapshot); // 4. lỗi → khôi phục
+      showToast('Xóa thất bại, đã khôi phục', 'danger');
+    }
   };
 
   /* ---------------- G3. Sửa nhanh tồn kho – PATCH { stock } ---------------- */
@@ -170,6 +196,9 @@ export default function AdminLaptopPage() {
                       <Button as={Link} to={`/admin/laptops/${laptop.id}/edit`} size="sm" variant="outline-primary" className="me-2">
                         Sửa
                       </Button>
+                      <Button size="sm" variant="outline-danger" onClick={() => setToDelete(laptop)}>
+                        Xóa
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -180,6 +209,15 @@ export default function AdminLaptopPage() {
       )}
 
       <AppPagination page={page} totalPages={totalPages} onChange={goToPage} />
+
+      <ConfirmModal
+        show={Boolean(toDelete)}
+        title="Xóa laptop"
+        message={toDelete && `Bạn có chắc muốn xóa "${toDelete.name}"?`}
+        confirmText="Xóa"
+        onConfirm={deleteOne}
+        onCancel={() => setToDelete(null)}
+      />
     </>
   );
 }
