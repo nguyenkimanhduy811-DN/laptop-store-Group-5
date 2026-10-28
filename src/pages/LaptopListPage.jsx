@@ -18,10 +18,12 @@ const FILTER_KEYS = [
 export default function LaptopListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Đọc bộ lọc từ URL
   const filters = Object.fromEntries(
     FILTER_KEYS.map((key) => [key, searchParams.get(key) ?? ''])
   );
 
+  // Cập nhật bộ lọc trên URL
   const updateParams = (patch) => {
     const next = new URLSearchParams(searchParams);
 
@@ -33,7 +35,9 @@ export default function LaptopListPage() {
       }
     });
 
+    // Thay đổi bộ lọc hoặc cách sắp xếp thì quay về trang đầu
     next.delete('page');
+
     setSearchParams(next);
   };
 
@@ -48,17 +52,20 @@ export default function LaptopListPage() {
     [queryString]
   );
 
+  // Thông tin phân trang
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Number(filters.page) || 1;
 
   const changePage = (page) => {
     const next = new URLSearchParams(searchParams);
+
     if (page <= 1) {
       next.delete('page');
     } else {
       next.set('page', String(page));
     }
+
     setSearchParams(next);
   };
 
@@ -69,6 +76,27 @@ export default function LaptopListPage() {
         onChange={updateParams}
         onReset={() => setSearchParams({})}
       />
+
+      {/* Commit 4: Tùy chọn sắp xếp */}
+      <div className="mb-3">
+        <label htmlFor="sort" className="form-label">
+          Sắp xếp theo
+        </label>
+
+        <select
+          id="sort"
+          className="form-select"
+          value={filters.sort || 'newest'}
+          onChange={(event) =>
+            updateParams({ sort: event.target.value })
+          }
+        >
+          <option value="newest">Mới nhất</option>
+          <option value="price_asc">Giá tăng dần</option>
+          <option value="price_desc">Giá giảm dần</option>
+          <option value="bestseller">Bán chạy</option>
+        </select>
+      </div>
 
       {loading && <p>Đang tải danh sách laptop...</p>}
 
@@ -83,9 +111,7 @@ export default function LaptopListPage() {
 
       {!loading && !error && (
         <>
-          <p>
-            Tổng số laptop: {total}
-          </p>
+          <p>Tổng số laptop: {total}</p>
 
           <p>
             Trang {currentPage} / {totalPages}
@@ -102,7 +128,9 @@ export default function LaptopListPage() {
 
             <button
               type="button"
-              disabled={currentPage >= totalPages || totalPages === 0}
+              disabled={
+                currentPage >= totalPages || totalPages === 0
+              }
               onClick={() => changePage(currentPage + 1)}
             >
               Trang sau
