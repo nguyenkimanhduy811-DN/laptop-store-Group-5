@@ -1,12 +1,10 @@
 
-import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Carousel } from 'react-bootstrap';
+import { useState } from 'react';
+import { Button, Carousel } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 
 import laptopApi from '../api/laptopApi';
 import catalogApi from '../api/catalogApi';
-import { isCancel } from '../api/axiosClient';
-
 import useAxios from '../hooks/useAxios';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -25,38 +23,8 @@ const BESTSELLER_PARAMS = {
   _limit: 4,
 };
 
-const BANNERS = [
-  {
-    title: 'BỨT PHÁ MỌI GIỚI HẠN',
-    subtitle: 'Laptop gaming mạnh mẽ cho mọi trận chiến.',
-    button: 'Khám phá laptop gaming',
-    categoryId: 2,
-    background: 'linear-gradient(120deg, #141e30, #243b55)',
-  },
-  {
-    title: 'MỎNG NHẸ, LINH HOẠT',
-    subtitle: 'Đồng hành cùng bạn trong công việc và học tập.',
-    button: 'Khám phá laptop mỏng nhẹ',
-    categoryId: 4,
-    background: 'linear-gradient(120deg, #134e5e, #71b280)',
-  },
-  {
-    title: 'SỨC MẠNH CHO CÔNG VIỆC',
-    subtitle: 'Hiệu năng đáng tin cậy cho những tác vụ chuyên nghiệp.',
-    button: 'Khám phá laptop workstation',
-    categoryId: 3,
-    background: 'linear-gradient(120deg, #42275a, #734b6d)',
-  },
-];
-
-// Đảm bảo dữ liệu danh mục là mảng trước khi hiển thị.
-function ensureArray(value) {
-  return Array.isArray(value) ? value : [];
-}
-
+// Commit 1: Tải đồng thời 4 request bằng Promise.all.
 async function loadParallel(signal) {
-  const start = performance.now();
-
   const [newestResult, bestsellerResult, brands, categories] =
     await Promise.all([
       laptopApi.getAll(NEWEST_PARAMS, signal),
@@ -66,94 +34,86 @@ async function loadParallel(signal) {
     ]);
 
   return {
-    newestLaptops: ensureArray(newestResult?.items),
-    bestsellers: ensureArray(bestsellerResult?.items),
-    brands: ensureArray(brands),
-    categories: ensureArray(categories),
-    parallelMs: Math.round(performance.now() - start),
+    newest: Array.isArray(newestResult?.items)
+      ? newestResult.items
+      : [],
+    bestsellers: Array.isArray(bestsellerResult?.items)
+      ? bestsellerResult.items
+      : [],
+    brands: Array.isArray(brands) ? brands : [],
+    categories: Array.isArray(categories) ? categories : [],
   };
 }
 
-async function loadSequential(signal) {
-  const start = performance.now();
-
-  const newestResult = await laptopApi.getAll(NEWEST_PARAMS, signal);
-  const bestsellerResult = await laptopApi.getAll(
-    BESTSELLER_PARAMS,
-    signal,
-  );
-  const brands = await catalogApi.getBrands(signal);
-  const categories = await catalogApi.getCategories(signal);
-
-  return {
-    newestLaptops: ensureArray(newestResult?.items),
-    bestsellers: ensureArray(bestsellerResult?.items),
-    brands: ensureArray(brands),
-    categories: ensureArray(categories),
-    sequentialMs: Math.round(performance.now() - start),
-  };
-}
+const BANNERS = [
+  {
+    title: 'Laptop Gaming – Chiến mọi tựa game',
+    text: 'RTX 40 series, màn hình 240Hz. Giảm đến 10%.',
+    to: '/laptops?categoryId=2',
+    bg: 'linear-gradient(135deg, #1a1a2e, #e94560)',
+  },
+  {
+    title: 'Mỏng nhẹ – Mang theo mọi nơi',
+    text: 'Dưới 1.4kg, pin cả ngày cho sinh viên và dân văn phòng.',
+    to: '/laptops?categoryId=4',
+    bg: 'linear-gradient(135deg, #0f4c75, #3282b8)',
+  },
+  {
+    title: 'Máy trạm cho dân Đồ họa – Kỹ thuật',
+    text: 'RAM đến 64GB, màn hình OLED chuẩn màu.',
+    to: '/laptops?categoryId=3',
+    bg: 'linear-gradient(135deg, #2d4059, #ea5455)',
+  },
+];
 
 export default function HomePage() {
   usePageTitle('Trang chủ');
 
-  const fetchHomeData = useCallback(
-    (signal) => loadParallel(signal),
-    [],
-  );
-
   const { data, loading, error, refetch } = useAxios(
-    fetchHomeData,
+    loadParallel,
     [],
   );
 
-  const [sequentialMs, setSequentialMs] = useState(null);
-
-  // Đo thời gian tải tuần tự trong môi trường development.
-  useEffect(() => {
-    if (!import.meta.env.DEV || !data || loading || error) {
-      return undefined;
-    }
-
-    const controller = new AbortController();
-
-    loadSequential(controller.signal)
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setSequentialMs(result.sequentialMs);
-        }
-      })
-      .catch((err) => {
-        if (!isCancel(err) && !controller.signal.aborted) {
-          console.error(
-            'Không thể đo thời gian tải tuần tự:',
-            err,
-          );
-        }
-      });
-
-    return () => controller.abort();
-  }, [data, loading, error]);
-
-  const newestLaptops = ensureArray(data?.newestLaptops);
-  const bestsellers = ensureArray(data?.bestsellers);
-  const brands = ensureArray(data?.brands);
-  const categories = ensureArray(data?.categories);
+  const brands = Array.isArray(data?.brands) ? data.brands : [];
+  const categories = Array.isArray(data?.categories)
+    ? data.categories
+    : [];
+  const bestsellers = Array.isArray(data?.bestsellers)
+    ? data.bestsellers
+    : [];
+  const newest = Array.isArray(data?.newest) ? data.newest : [];
 
   return (
     <main className="container py-4">
-      {import.meta.env.DEV && data && (
-        <div className="mb-3">
-          <Badge bg="info" text="dark">
-            Tuần tự:{' '}
-            {sequentialMs === null
-              ? 'Đang đo...'
-              : `${sequentialMs} ms`}
-            {' | '}
-            Song song: {data.parallelMs} ms
-          </Badge>
-        </div>
-      )}
+      <Carousel
+        className="mb-4 rounded overflow-hidden shadow-sm"
+        interval={4000}
+      >
+        {BANNERS.map((banner) => (
+          <Carousel.Item key={banner.title}>
+            <div
+              className="home-banner d-flex align-items-center"
+              style={{
+                background: banner.bg,
+                minHeight: '320px',
+                borderRadius: '8px',
+              }}
+            >
+              <div className="text-white px-4 px-md-5 py-5">
+                <h2 className="fw-bold">{banner.title}</h2>
+                <p className="lead">{banner.text}</p>
+                <Button
+                  as={Link}
+                  to={banner.to}
+                  variant="warning"
+                >
+                  Xem ngay
+                </Button>
+              </div>
+            </div>
+          </Carousel.Item>
+        ))}
+      </Carousel>
 
       {error && (
         <ErrorAlert message={error} onRetry={refetch} />
@@ -161,44 +121,15 @@ export default function HomePage() {
 
       {!error && (
         <>
-          {/* Banner giới thiệu */}
-          <Carousel className="mb-5" interval={5000}>
-            {BANNERS.map((banner) => (
-              <Carousel.Item key={banner.title}>
-                <div
-                  className="d-flex flex-column justify-content-center align-items-start text-white p-5"
-                  style={{
-                    minHeight: '280px',
-                    background: banner.background,
-                    borderRadius: '12px',
-                  }}
-                >
-                  <h1 className="fw-bold">{banner.title}</h1>
-
-                  <p className="fs-5">{banner.subtitle}</p>
-
-                  <Button
-                    as={Link}
-                    to={`/laptops?categoryId=${banner.categoryId}`}
-                    variant="light"
-                  >
-                    {banner.button}
-                  </Button>
-                </div>
-              </Carousel.Item>
-            ))}
-          </Carousel>
-
-          {/* Thương hiệu nổi bật */}
-          <section className="mb-5">
-            <h2 className="mb-3">Thương hiệu nổi bật</h2>
+          <section className="mb-4">
+            <h5 className="fw-bold mb-3">Mua theo hãng</h5>
 
             <div className="d-flex flex-wrap gap-2">
               {loading
                 ? Array.from({ length: 4 }, (_, index) => (
                     <Button
                       key={index}
-                      variant="outline-secondary"
+                      variant="outline-dark"
                       disabled
                     >
                       Đang tải...
@@ -209,17 +140,33 @@ export default function HomePage() {
                       key={brand.id}
                       as={Link}
                       to={`/laptops?brandId=${brand.id}`}
-                      variant="outline-primary"
+                      variant="outline-dark"
                     >
                       {brand.name}
                     </Button>
                   ))}
+
+              {!loading &&
+                categories.map((category) => (
+                  <Button
+                    key={`c${category.id}`}
+                    as={Link}
+                    to={`/laptops?categoryId=${category.id}`}
+                    variant="outline-primary"
+                  >
+                    {category.name}
+                  </Button>
+                ))}
             </div>
           </section>
 
-          {/* Laptop bán chạy */}
           <section className="mb-5">
-            <h2 className="mb-3">Laptop bán chạy</h2>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h4 className="fw-bold mb-0">🔥 Bán chạy</h4>
+              <Link to="/laptops?sort=bestseller">
+                Xem tất cả →
+              </Link>
+            </div>
 
             <LaptopGrid
               laptops={bestsellers}
@@ -228,36 +175,18 @@ export default function HomePage() {
             />
           </section>
 
-          {/* Laptop mới nhất */}
-          <section className="mb-5">
-            <h2 className="mb-3">Laptop mới nhất</h2>
+          <section className="mb-4">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h4 className="fw-bold mb-0">🆕 Mới về</h4>
+              <Link to="/laptops">Xem tất cả →</Link>
+            </div>
 
             <LaptopGrid
-              laptops={newestLaptops}
+              laptops={newest}
               loading={loading}
               skeletonCount={8}
             />
           </section>
-
-          {/* Danh mục laptop */}
-          {!loading && categories.length > 0 && (
-            <section className="mb-4">
-              <h2 className="mb-3">Danh mục laptop</h2>
-
-              <div className="d-flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <Button
-                    key={category.id}
-                    as={Link}
-                    to={`/laptops?categoryId=${category.id}`}
-                    variant="outline-secondary"
-                  >
-                    {category.name}
-                  </Button>
-                ))}
-              </div>
-            </section>
-          )}
         </>
       )}
     </main>
