@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Image, Table } from 'react-bootstrap';
+import { Alert, Button, ButtonGroup, Card, Image, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
+import { useToast } from '../contexts/ToastContext';
+import { getErrorMessage } from '../api/axiosClient';
 import usePageTitle from '../hooks/usePageTitle';
 import { formatPrice, getSellingPrice } from '../utils/format';
 import { handleImageError } from '../utils/image';
@@ -12,7 +14,21 @@ import EmptyState from '../components/common/EmptyState';
 /** G1. Trang giỏ hàng – dữ liệu lưu thật trong /cartItems */
 export default function CartPage() {
   usePageTitle('Giỏ hàng');
-  const { items, totalPrice, loading, error, reload } = useCart();
+  const { items, totalPrice, loading, error, updateQuantity, reload } = useCart();
+  const { showToast } = useToast();
+  const [pendingId, setPendingId] = useState(null);
+
+  const changeQuantity = async (item, quantity) => {
+    if (quantity < 1) return; // commit 3 sẽ xử lý xoá
+    setPendingId(item.id);
+    try {
+      await updateQuantity(item, quantity);
+    } catch (err) {
+      showToast(getErrorMessage(err), 'danger');
+    } finally {
+      setPendingId(null);
+    }
+  };
 
   if (loading && items.length === 0) return <Loading text="Đang tải giỏ hàng..." />;
   if (error) return <ErrorAlert message={error} onRetry={reload} />;
@@ -58,6 +74,7 @@ export default function CartPage() {
           <tbody>
             {items.map((item) => {
               const price = getSellingPrice(item.laptop); // BR-03
+              const busy = pendingId === item.id;
               return (
                 <tr key={item.id}>
                   <td style={{ minWidth: 240 }}>
@@ -70,7 +87,27 @@ export default function CartPage() {
                   </td>
                   <td className="text-end text-nowrap">{formatPrice(price)}</td>
                   <td className="text-center">
-                    <span className="px-3">{item.quantity}</span>
+                    <ButtonGroup size="sm">
+                      <Button
+                        variant="outline-secondary"
+                        disabled={busy || item.quantity <= 1}
+                        onClick={() => changeQuantity(item, item.quantity - 1)}
+                        aria-label="Giảm"
+                      >
+                        −
+                      </Button>
+                      <Button variant="light" disabled className="px-3 text-body">
+                        {item.quantity}
+                      </Button>
+                      <Button
+                        variant="outline-secondary"
+                        disabled={busy || item.quantity >= item.laptop.stock}
+                        onClick={() => changeQuantity(item, item.quantity + 1)}
+                        aria-label="Tăng"
+                      >
+                        +
+                      </Button>
+                    </ButtonGroup>
                   </td>
                   <td className="text-end fw-semibold text-nowrap">{formatPrice(price * item.quantity)}</td>
                   <td />
