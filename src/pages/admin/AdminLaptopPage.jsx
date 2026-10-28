@@ -17,7 +17,7 @@ import AppPagination from '../../components/common/AppPagination';
 
 const ADMIN_PAGE_SIZE = 10;
 
-/** G3 + H4. Quản trị laptop */
+/** G3 + H3 + H4. Quản trị laptop */
 export default function AdminLaptopPage() {
   usePageTitle('Quản trị laptop');
   const { showToast } = useToast();
@@ -36,6 +36,7 @@ export default function AdminLaptopPage() {
   const items = data?.items ?? [];
   const totalPages = data ? Math.ceil(data.total / ADMIN_PAGE_SIZE) : 0;
 
+  const [selected, setSelected] = useState(() => new Set());
   const [toDelete, setToDelete] = useState(null);
   const [editingStock, setEditingStock] = useState(null); // { id, value }
   const [savingStock, setSavingStock] = useState(false);
@@ -51,6 +52,11 @@ export default function AdminLaptopPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedKeyword]);
 
+  // Đổi trang / từ khoá → bỏ chọn
+  useEffect(() => {
+    setSelected(new Set());
+  }, [q, page]);
+
   const goToPage = (p) => {
     const next = new URLSearchParams(searchParams);
     if (p <= 1) next.delete('page');
@@ -63,6 +69,17 @@ export default function AdminLaptopPage() {
     if (remainingOnPage === 0 && page > 1) goToPage(page - 1);
     else refetch();
   };
+
+  /* ---------------- Chọn nhiều ---------------- */
+  const allChecked = items.length > 0 && items.every((i) => selected.has(i.id));
+  const toggleAll = () => setSelected(allChecked ? new Set() : new Set(items.map((i) => i.id)));
+  const toggleOne = (id) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   /* ---------------- H4. Xoá 1 laptop – optimistic ---------------- */
   const deleteOne = async () => {
@@ -126,6 +143,9 @@ export default function AdminLaptopPage() {
             onChange={(e) => setKeyword(e.target.value)}
           />
         </InputGroup>
+        <Button variant="danger" disabled={selected.size === 0}>
+          Xóa đã chọn ({selected.size})
+        </Button>
         {loading && data && <Spinner size="sm" className="align-self-center" />}
       </div>
 
@@ -140,6 +160,9 @@ export default function AdminLaptopPage() {
             <Table hover responsive className="mb-0 align-middle">
               <thead className="table-light">
                 <tr>
+                  <th style={{ width: 40 }}>
+                    <Form.Check aria-label="Chọn tất cả" checked={allChecked} onChange={toggleAll} />
+                  </th>
                   <th>ID</th>
                   <th>Ảnh</th>
                   <th>Tên</th>
@@ -151,7 +174,14 @@ export default function AdminLaptopPage() {
               </thead>
               <tbody>
                 {items.map((laptop) => (
-                  <tr key={laptop.id}>
+                  <tr key={laptop.id} className={selected.has(laptop.id) ? 'table-active' : undefined}>
+                    <td>
+                      <Form.Check
+                        aria-label={`Chọn ${laptop.name}`}
+                        checked={selected.has(laptop.id)}
+                        onChange={() => toggleOne(laptop.id)}
+                      />
+                    </td>
                     <td>{laptop.id}</td>
                     <td>
                       <Image src={laptop.image} alt="" width={64} rounded className="border" onError={handleImageError} />
