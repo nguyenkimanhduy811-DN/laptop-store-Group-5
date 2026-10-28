@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Col, Form, ListGroup, Row } from 'react-bootstrap';
+import { Alert, Button, Card, Col, Form, ListGroup, Row, Spinner } from 'react-bootstrap';
 import { Link, Navigate } from 'react-router-dom';
+import laptopApi from '../api/laptopApi';
+import { getErrorMessage } from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import usePageTitle from '../hooks/usePageTitle';
@@ -24,6 +26,7 @@ export default function CheckoutPage() {
   const [form, setForm] = useState({ fullName: user.fullName ?? '', phone: '', address: '', note: '' });
   const [touched, setTouched] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [placing, setPlacing] = useState(false);
   const [error, setError] = useState(null);
 
   const errors = validate(form);
@@ -36,11 +39,29 @@ export default function CheckoutPage() {
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   const handleBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
 
-  const handleSubmit = (e) => {
+  /** C4 + BR-04. Quy trình đặt hàng */
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitted(true);
     if (Object.keys(errors).length > 0) return;
-    // Commit 2 sẽ xử lý đặt hàng
+
+    setPlacing(true);
+    setError(null);
+    try {
+      // Bước 1 – Kiểm tra tồn kho MỚI NHẤT bằng Promise.all:
+      // thiếu thông tin của bất kỳ laptop nào thì không thể đặt hàng → dừng toàn bộ.
+      const latest = await Promise.all(items.map((item) => laptopApi.getById(item.laptopId)));
+      const shortageIndex = items.findIndex((item, i) => latest[i].stock < item.quantity);
+      if (shortageIndex >= 0) {
+        const lp = latest[shortageIndex];
+        throw { message: `"${lp.name}" chỉ còn ${lp.stock} sản phẩm` };
+      }
+
+      // TODO: Commit 3 sẽ tạo đơn hàng
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setPlacing(false);
+    }
   };
 
   return (
@@ -118,7 +139,8 @@ export default function CheckoutPage() {
               </ListGroup.Item>
             </ListGroup>
             <Card.Body className="d-grid gap-2">
-              <Button type="submit" form="checkout-form" size="lg">
+              <Button type="submit" form="checkout-form" size="lg" disabled={placing}>
+                {placing && <Spinner size="sm" className="me-2" />}
                 Đặt hàng
               </Button>
               <Button as={Link} to="/cart" variant="outline-secondary">
