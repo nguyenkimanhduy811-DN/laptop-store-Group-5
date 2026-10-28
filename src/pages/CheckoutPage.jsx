@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Button, Card, Col, Form, ListGroup, Row, Spinner } from 'react-bootstrap';
 import { Link, Navigate } from 'react-router-dom';
 import laptopApi from '../api/laptopApi';
+import orderApi from '../api/orderApi';
+import cartApi from '../api/cartApi';
 import { getErrorMessage } from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -21,7 +23,8 @@ const validate = ({ fullName, phone, address }) => {
 export default function CheckoutPage() {
   usePageTitle('Thanh toán');
   const { user } = useAuth();
-  const { items, totalPrice, loading } = useCart();
+  const { items, totalPrice, loading, clearLocal } = useCart();
+  const placedRef = useRef(false);
 
   const [form, setForm] = useState({ fullName: user.fullName ?? '', phone: '', address: '', note: '' });
   const [touched, setTouched] = useState({});
@@ -34,7 +37,7 @@ export default function CheckoutPage() {
 
   if (loading && items.length === 0) return <Loading text="Đang tải giỏ hàng..." />;
   // BR-09: giỏ rỗng → không cho vào trang thanh toán
-  if (items.length === 0) return <Navigate to="/cart" replace />;
+  if (!placedRef.current && items.length === 0) return <Navigate to="/cart" replace />;
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   const handleBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
@@ -57,7 +60,48 @@ export default function CheckoutPage() {
         throw { message: `"${lp.name}" chỉ còn ${lp.stock} sản phẩm` };
       }
 
-      // TODO: Commit 3 sẽ tạo đơn hàng
+      // Bước 2 – Tạo đơn hàng (giá và tổng tiền tính lại theo dữ liệu mới nhất)
+      const orderItems = items.map((item, i) => ({
+        laptopId: item.laptopId,
+        name: latest[i].name,
+        price: getSellingPrice(latest[i]),
+        quantity: item.quantity,
+      }));
+      const order = await orderApi.create({
+        userId: user.id,
+        items: orderItems,
+        customer: {
+          fullName: form.fullName.trim(),
+          phone: form.phone.trim(),
+          address: form.address.trim(),
+          note: form.note.trim(),
+        },
+        total: orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      });
+
+      // Bước 3 – Trừ kho + làm rỗng giỏ bằng Promise.allSettled:
+      // đơn đã tạo xong, một request phụ lỗi cũng không được làm hỏng kết quả đặt hàng.
+      const results = await Promise.allSettled([
+        ...items.map((item, i) =>
+          laptopApi.patch(item.laptopId, {
+            stock: latest[i].stock - item.quantity,
+            sold: latest[i].sold + item.quantity,
+          })
+        ),
+        ...items.map((item) => cartApi.remove(item.id)),
+      ]);
+
+      // Bước 4 – Có request thất bại: vẫn coi là thành công, chỉ ghi cảnh báo
+      const failed = results.filter((r) => r.status === 'rejected');
+      if (failed.length > 0) {
+        console.warn('[Checkout] Một số request cập nhật kho/giỏ hàng thất bại:', failed.map((f) => f.reason));
+      }
+
+      placedRef.current = true;
+      clearLocal();
+      // TODO: Commit 4 sẽ redirect
     } catch (err) {
       setError(getErrorMessage(err));
       setPlacing(false);
