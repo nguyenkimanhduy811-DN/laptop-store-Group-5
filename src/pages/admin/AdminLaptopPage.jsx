@@ -38,6 +38,8 @@ export default function AdminLaptopPage() {
 
   const [selected, setSelected] = useState(() => new Set());
   const [toDelete, setToDelete] = useState(null);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [editingStock, setEditingStock] = useState(null); // { id, value }
   const [savingStock, setSavingStock] = useState(false);
 
@@ -88,6 +90,11 @@ export default function AdminLaptopPage() {
 
     const snapshot = data; // 1. lưu bản sao
     setData((prev) => ({ ...prev, items: prev.items.filter((i) => i.id !== laptop.id), total: prev.total - 1 })); // 2. xoá ngay
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(laptop.id);
+      return next;
+    });
 
     try {
       await laptopApi.remove(laptop.id); // 3. gọi API
@@ -97,6 +104,28 @@ export default function AdminLaptopPage() {
       setData(snapshot); // 4. lỗi → khôi phục
       showToast('Xóa thất bại, đã khôi phục', 'danger');
     }
+  };
+
+  /* ---------------- H3. Xoá hàng loạt – Promise.allSettled ---------------- */
+  const deleteSelected = async () => {
+    const ids = [...selected];
+    setBulkDeleting(true);
+
+    // Song song; 1 request lỗi không làm hỏng các request khác
+    const results = await Promise.allSettled(ids.map((id) => laptopApi.remove(id)));
+    const failedIds = ids.filter((_, i) => results[i].status === 'rejected');
+    const okCount = ids.length - failedIds.length;
+
+    let message = `Đã xóa ${okCount}/${ids.length} laptop.`;
+    if (failedIds.length > 0) message += ` ${failedIds.length} laptop xóa thất bại.`;
+    showToast(message, failedIds.length === 0 ? 'success' : okCount === 0 ? 'danger' : 'warning');
+
+    setBulkDeleting(false);
+    setShowBulkConfirm(false);
+    setSelected(new Set(failedIds)); // bỏ chọn dòng thành công, giữ chọn dòng thất bại
+
+    const remaining = items.filter((i) => !ids.includes(i.id) || failedIds.includes(i.id)).length;
+    afterDelete(remaining);
   };
 
   /* ---------------- G3. Sửa nhanh tồn kho – PATCH { stock } ---------------- */
@@ -143,7 +172,7 @@ export default function AdminLaptopPage() {
             onChange={(e) => setKeyword(e.target.value)}
           />
         </InputGroup>
-        <Button variant="danger" disabled={selected.size === 0}>
+        <Button variant="danger" disabled={selected.size === 0} onClick={() => setShowBulkConfirm(true)}>
           Xóa đã chọn ({selected.size})
         </Button>
         {loading && data && <Spinner size="sm" className="align-self-center" />}
@@ -247,6 +276,15 @@ export default function AdminLaptopPage() {
         confirmText="Xóa"
         onConfirm={deleteOne}
         onCancel={() => setToDelete(null)}
+      />
+      <ConfirmModal
+        show={showBulkConfirm}
+        title="Xóa nhiều laptop"
+        message={`Bạn có chắc muốn xóa ${selected.size} laptop đã chọn?`}
+        confirmText="Xóa tất cả"
+        loading={bulkDeleting}
+        onConfirm={deleteSelected}
+        onCancel={() => setShowBulkConfirm(false)}
       />
     </>
   );
