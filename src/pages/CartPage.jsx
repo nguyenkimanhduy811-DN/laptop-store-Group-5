@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Button, ButtonGroup, Card, Image, Table } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useToast } from '../contexts/ToastContext';
 import { getErrorMessage } from '../api/axiosClient';
@@ -10,16 +10,22 @@ import { handleImageError } from '../utils/image';
 import Loading from '../components/common/Loading';
 import ErrorAlert from '../components/common/ErrorAlert';
 import EmptyState from '../components/common/EmptyState';
+import ConfirmModal from '../components/common/ConfirmModal';
 
 /** G1. Trang giỏ hàng – dữ liệu lưu thật trong /cartItems */
 export default function CartPage() {
   usePageTitle('Giỏ hàng');
-  const { items, totalPrice, loading, error, updateQuantity, reload } = useCart();
+  const navigate = useNavigate();
+  const { items, totalPrice, loading, error, updateQuantity, removeItem, reload } = useCart();
   const { showToast } = useToast();
   const [pendingId, setPendingId] = useState(null);
+  const [itemToRemove, setItemToRemove] = useState(null);
 
   const changeQuantity = async (item, quantity) => {
-    if (quantity < 1) return; // commit 3 sẽ xử lý xoá
+    if (quantity < 1) {
+      setItemToRemove(item); // BR-02: số lượng về 0 → hỏi xác nhận rồi xoá
+      return;
+    }
     setPendingId(item.id);
     try {
       await updateQuantity(item, quantity);
@@ -27,6 +33,18 @@ export default function CartPage() {
       showToast(getErrorMessage(err), 'danger');
     } finally {
       setPendingId(null);
+    }
+  };
+
+  /** H4. Optimistic: dòng biến mất ngay, lỗi thì CartContext khôi phục */
+  const confirmRemove = async () => {
+    const item = itemToRemove;
+    setItemToRemove(null);
+    try {
+      await removeItem(item);
+      showToast(`Đã xóa "${item.laptop.name}" khỏi giỏ hàng`, 'info');
+    } catch {
+      showToast('Xóa thất bại, đã khôi phục', 'danger');
     }
   };
 
@@ -90,7 +108,7 @@ export default function CartPage() {
                     <ButtonGroup size="sm">
                       <Button
                         variant="outline-secondary"
-                        disabled={busy || item.quantity <= 1}
+                        disabled={busy}
                         onClick={() => changeQuantity(item, item.quantity - 1)}
                         aria-label="Giảm"
                       >
@@ -110,7 +128,11 @@ export default function CartPage() {
                     </ButtonGroup>
                   </td>
                   <td className="text-end fw-semibold text-nowrap">{formatPrice(price * item.quantity)}</td>
-                  <td />
+                  <td className="text-end">
+                    <Button variant="outline-danger" size="sm" onClick={() => setItemToRemove(item)}>
+                      Xóa
+                    </Button>
+                  </td>
                 </tr>
               );
             })}
@@ -124,12 +146,21 @@ export default function CartPage() {
             <span>
               Tổng cộng: <strong className="fs-4 text-danger">{formatPrice(totalPrice)}</strong>
             </span>
-            <Button size="lg" disabled={invalidItems.length > 0}>
+            <Button size="lg" disabled={invalidItems.length > 0} onClick={() => navigate('/checkout')}>
               Tiến hành đặt hàng
             </Button>
           </div>
         </Card.Footer>
       </Card>
+
+      <ConfirmModal
+        show={Boolean(itemToRemove)}
+        title="Xóa khỏi giỏ hàng"
+        message={itemToRemove && `Bạn có chắc muốn xóa "${itemToRemove.laptop.name}" khỏi giỏ hàng?`}
+        confirmText="Xóa"
+        onConfirm={confirmRemove}
+        onCancel={() => setItemToRemove(null)}
+      />
     </>
   );
 }
