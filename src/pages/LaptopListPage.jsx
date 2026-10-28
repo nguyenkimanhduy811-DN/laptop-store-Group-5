@@ -1,8 +1,12 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Button, Offcanvas } from 'react-bootstrap';
 import LaptopFilter from '../components/laptop/LaptopFilter';
-import laptopApi, { PAGE_SIZE, buildLaptopParams } from '../api/laptopApi';
+import laptopApi, {
+  PAGE_SIZE,
+  buildLaptopParams,
+} from '../api/laptopApi';
 import useAxios from '../hooks/useAxios';
 
 const FILTER_KEYS = [
@@ -20,20 +24,21 @@ const DEBOUNCE_DELAY = 400;
 
 export default function LaptopListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [showFilters, setShowFilters] = useState(false);
 
   const filters = Object.fromEntries(
-    FILTER_KEYS.map((key) => [key, searchParams.get(key) ?? ''])
+    FILTER_KEYS.map((key) => [
+      key,
+      searchParams.get(key) ?? '',
+    ])
   );
 
-  // Giá trị đang nhập trong ô tìm kiếm
   const [keyword, setKeyword] = useState(filters.q);
 
-  // Đồng bộ ô tìm kiếm khi URL thay đổi, ví dụ Back/Forward
   useEffect(() => {
     setKeyword(filters.q);
   }, [filters.q]);
 
-  // Chờ người dùng ngừng nhập rồi mới cập nhật URL
   useEffect(() => {
     const normalizedKeyword = keyword.trim();
 
@@ -50,7 +55,6 @@ export default function LaptopListPage() {
         next.delete('q');
       }
 
-      // Tìm kiếm mới bắt đầu từ trang đầu
       next.delete('page');
       setSearchParams(next);
     }, DEBOUNCE_DELAY);
@@ -58,7 +62,6 @@ export default function LaptopListPage() {
     return () => clearTimeout(timer);
   }, [keyword, filters.q, searchParams, setSearchParams]);
 
-  // Cập nhật các bộ lọc khác trên URL
   const updateParams = (patch) => {
     const next = new URLSearchParams(searchParams);
 
@@ -72,6 +75,11 @@ export default function LaptopListPage() {
 
     next.delete('page');
     setSearchParams(next);
+  };
+
+  const resetFilters = () => {
+    setKeyword('');
+    setSearchParams({});
   };
 
   const queryString = searchParams.toString();
@@ -101,6 +109,14 @@ export default function LaptopListPage() {
     setSearchParams(next);
   };
 
+  const filterContent = (
+    <LaptopFilter
+      filters={filters}
+      onChange={updateParams}
+      onReset={resetFilters}
+    />
+  );
+
   return (
     <div>
       {/* Tìm kiếm theo từ khóa */}
@@ -119,14 +135,36 @@ export default function LaptopListPage() {
         />
       </div>
 
-      <LaptopFilter
-        filters={filters}
-        onChange={updateParams}
-        onReset={() => {
-          setKeyword('');
-          setSearchParams({});
-        }}
-      />
+      {/* Bộ lọc trên màn hình nhỏ */}
+      <div className="d-lg-none mb-3">
+        <Button
+          type="button"
+          variant="outline-primary"
+          onClick={() => setShowFilters(true)}
+        >
+          ⚙ Bộ lọc
+        </Button>
+      </div>
+
+      <Offcanvas
+        show={showFilters}
+        onHide={() => setShowFilters(false)}
+        placement="start"
+        responsive="lg"
+      >
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>Bộ lọc laptop</Offcanvas.Title>
+        </Offcanvas.Header>
+
+        <Offcanvas.Body>
+          {filterContent}
+        </Offcanvas.Body>
+      </Offcanvas>
+
+      {/* Bộ lọc trên màn hình lớn */}
+      <div className="d-none d-lg-block mb-3">
+        {filterContent}
+      </div>
 
       {/* Tùy chọn sắp xếp */}
       <div className="mb-3">
@@ -163,7 +201,6 @@ export default function LaptopListPage() {
       {!loading && !error && (
         <>
           <p>Tổng số laptop: {total}</p>
-
           <p>
             Trang {currentPage} / {totalPages}
           </p>
