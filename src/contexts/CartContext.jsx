@@ -54,6 +54,59 @@ export function CartProvider({ children }) {
     return () => controller.abort();
   }, [user, reloadKey]);
 
+  /** Thêm vào giỏ: đã có → PATCH tăng số lượng; chưa có → POST. BR-02: không vượt stock */
+  const addToCart = useCallback(
+    async (laptop, quantity = 1) => {
+      if (!user) throw { message: 'Vui lòng đăng nhập' };
+
+      const existing = itemsRef.current.find((item) => item.laptopId === laptop.id);
+      const newQuantity = (existing?.quantity ?? 0) + quantity;
+      if (newQuantity > laptop.stock) {
+        throw { message: `"${laptop.name}" chỉ còn ${laptop.stock} sản phẩm` };
+      }
+
+      if (existing) {
+        const updated = await cartApi.updateQuantity(existing.id, newQuantity);
+        setItems((list) =>
+          list.map((item) => (item.id === existing.id ? { ...item, quantity: updated.quantity } : item))
+        );
+      } else {
+        const created = await cartApi.add(user.id, laptop.id, quantity);
+        // Response POST không có _expand → tự gắn laptop vào
+        setItems((list) => [...list, { ...created, laptop }]);
+      }
+    },
+    [user]
+  );
+
+  /** Đổi số lượng (PATCH). BR-02 */
+  const updateQuantity = useCallback(async (item, quantity) => {
+    if (quantity > item.laptop.stock) {
+      throw { message: `"${item.laptop.name}" chỉ còn ${item.laptop.stock} sản phẩm` };
+    }
+    const updated = await cartApi.updateQuantity(item.id, quantity);
+    setItems((list) => list.map((i) => (i.id === item.id ? { ...i, quantity: updated.quantity } : i)));
+  }, []);
+
+  /** H4. Optimistic update: xoá khỏi giao diện ngay, lỗi thì khôi phục đúng vị trí cũ */
+  const removeItem = useCallback(async (item) => {
+    const index = itemsRef.current.findIndex((i) => i.id === item.id); // 1. nhớ vị trí (bản sao)
+    setItems((list) => list.filter((i) => i.id !== item.id)); // 2. cập nhật giao diện ngay
+
+    try {
+      await cartApi.remove(item.id); // 3. gọi API
+    } catch (err) {
+      // 4. lỗi → khôi phục
+      setItems((list) => {
+        if (list.some((i) => i.id === item.id)) return list;
+        const restored = [...list];
+        restored.splice(index < 0 ? restored.length : index, 0, item);
+        return restored;
+      });
+      throw err;
+    }
+  }, []);
+
   /** Dùng sau khi đặt hàng: giỏ đã được xoá trên server */
   const clearLocal = useCallback(() => setItems([]), []);
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
@@ -69,10 +122,13 @@ export function CartProvider({ children }) {
       totalPrice,
       loading: isLoading,
       error,
+      addToCart,
+      updateQuantity,
+      removeItem,
       clearLocal,
       reload,
     };
-  }, [items, isLoading, error, clearLocal, reload]);
+  }, [items, isLoading, error, addToCart, updateQuantity, removeItem, clearLocal, reload]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
