@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import LaptopFilter from '../components/laptop/LaptopFilter';
 import laptopApi, { PAGE_SIZE, buildLaptopParams } from '../api/laptopApi';
@@ -15,15 +16,49 @@ const FILTER_KEYS = [
   'page',
 ];
 
+const DEBOUNCE_DELAY = 400;
+
 export default function LaptopListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Đọc bộ lọc từ URL
   const filters = Object.fromEntries(
     FILTER_KEYS.map((key) => [key, searchParams.get(key) ?? ''])
   );
 
-  // Cập nhật bộ lọc trên URL
+  // Giá trị đang nhập trong ô tìm kiếm
+  const [keyword, setKeyword] = useState(filters.q);
+
+  // Đồng bộ ô tìm kiếm khi URL thay đổi, ví dụ Back/Forward
+  useEffect(() => {
+    setKeyword(filters.q);
+  }, [filters.q]);
+
+  // Chờ người dùng ngừng nhập rồi mới cập nhật URL
+  useEffect(() => {
+    const normalizedKeyword = keyword.trim();
+
+    if (normalizedKeyword === filters.q) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+
+      if (normalizedKeyword) {
+        next.set('q', normalizedKeyword);
+      } else {
+        next.delete('q');
+      }
+
+      // Tìm kiếm mới bắt đầu từ trang đầu
+      next.delete('page');
+      setSearchParams(next);
+    }, DEBOUNCE_DELAY);
+
+    return () => clearTimeout(timer);
+  }, [keyword, filters.q, searchParams, setSearchParams]);
+
+  // Cập nhật các bộ lọc khác trên URL
   const updateParams = (patch) => {
     const next = new URLSearchParams(searchParams);
 
@@ -35,9 +70,7 @@ export default function LaptopListPage() {
       }
     });
 
-    // Thay đổi bộ lọc hoặc cách sắp xếp thì quay về trang đầu
     next.delete('page');
-
     setSearchParams(next);
   };
 
@@ -52,7 +85,6 @@ export default function LaptopListPage() {
     [queryString]
   );
 
-  // Thông tin phân trang
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Number(filters.page) || 1;
@@ -71,13 +103,32 @@ export default function LaptopListPage() {
 
   return (
     <div>
+      {/* Tìm kiếm theo từ khóa */}
+      <div className="mb-3">
+        <label htmlFor="laptop-keyword" className="form-label">
+          Tìm kiếm laptop
+        </label>
+
+        <input
+          id="laptop-keyword"
+          type="search"
+          className="form-control"
+          placeholder="Nhập tên laptop, thương hiệu..."
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+        />
+      </div>
+
       <LaptopFilter
         filters={filters}
         onChange={updateParams}
-        onReset={() => setSearchParams({})}
+        onReset={() => {
+          setKeyword('');
+          setSearchParams({});
+        }}
       />
 
-      {/* Commit 4: Tùy chọn sắp xếp */}
+      {/* Tùy chọn sắp xếp */}
       <div className="mb-3">
         <label htmlFor="sort" className="form-label">
           Sắp xếp theo
