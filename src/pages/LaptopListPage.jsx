@@ -1,7 +1,8 @@
 
 import { useSearchParams } from 'react-router-dom';
 import LaptopFilter from '../components/laptop/LaptopFilter';
-import laptopApi, { buildLaptopParams } from '../api/laptopApi';
+import laptopApi, { PAGE_SIZE, buildLaptopParams } from '../api/laptopApi';
+import useAxios from '../hooks/useAxios';
 
 const FILTER_KEYS = [
   'brandId',
@@ -17,12 +18,10 @@ const FILTER_KEYS = [
 export default function LaptopListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Đọc bộ lọc từ URL
   const filters = Object.fromEntries(
     FILTER_KEYS.map((key) => [key, searchParams.get(key) ?? ''])
   );
 
-  // Cập nhật bộ lọc trên URL
   const updateParams = (patch) => {
     const next = new URLSearchParams(searchParams);
 
@@ -34,17 +33,34 @@ export default function LaptopListPage() {
       }
     });
 
-    // Thay đổi bộ lọc thì quay về trang đầu
     next.delete('page');
-
     setSearchParams(next);
   };
 
-  // Ánh xạ bộ lọc URL thành tham số truy vấn API
-  const laptopParams = buildLaptopParams(filters);
+  const queryString = searchParams.toString();
 
-  // Gọi API danh sách laptop theo bộ lọc
-  const loadLaptops = () => laptopApi.getAll(laptopParams);
+  const { data, loading, error, refetch } = useAxios(
+    (signal) =>
+      laptopApi.getAll(
+        buildLaptopParams(filters, PAGE_SIZE),
+        signal
+      ),
+    [queryString]
+  );
+
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const currentPage = Number(filters.page) || 1;
+
+  const changePage = (page) => {
+    const next = new URLSearchParams(searchParams);
+    if (page <= 1) {
+      next.delete('page');
+    } else {
+      next.set('page', String(page));
+    }
+    setSearchParams(next);
+  };
 
   return (
     <div>
@@ -53,6 +69,51 @@ export default function LaptopListPage() {
         onChange={updateParams}
         onReset={() => setSearchParams({})}
       />
+
+      {loading && <p>Đang tải danh sách laptop...</p>}
+
+      {error && (
+        <div role="alert">
+          <p>{error}</p>
+          <button type="button" onClick={refetch}>
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          <p>
+            Tổng số laptop: {total}
+          </p>
+
+          <p>
+            Trang {currentPage} / {totalPages}
+          </p>
+
+          <div className="d-flex gap-2 align-items-center">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => changePage(currentPage - 1)}
+            >
+              Trang trước
+            </button>
+
+            <button
+              type="button"
+              disabled={currentPage >= totalPages || totalPages === 0}
+              onClick={() => changePage(currentPage + 1)}
+            >
+              Trang sau
+            </button>
+          </div>
+
+          <p className="text-secondary mt-2">
+            Số laptop ở trang này: {data?.items?.length ?? 0}
+          </p>
+        </>
+      )}
     </div>
   );
 }
