@@ -1,6 +1,7 @@
 
 import { useSearchParams } from 'react-router-dom';
 import LaptopFilter from '../components/laptop/LaptopFilter';
+import laptopApi, { buildLaptopParams } from '../api/laptopApi';
 
 const FILTER_KEYS = [
   'brandId',
@@ -38,6 +39,12 @@ export default function LaptopListPage() {
 
     setSearchParams(next);
   };
+
+  // Ánh xạ bộ lọc URL thành tham số truy vấn API
+  const laptopParams = buildLaptopParams(filters);
+
+  // Gọi API danh sách laptop theo bộ lọc
+  const loadLaptops = () => laptopApi.getAll(laptopParams);
 
   return (
     <div>
