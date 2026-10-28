@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Alert, Button, Card, Col, Form, ListGroup, Row, Spinner } from 'react-bootstrap';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import laptopApi from '../api/laptopApi';
 import orderApi from '../api/orderApi';
 import cartApi from '../api/cartApi';
@@ -22,6 +22,7 @@ const validate = ({ fullName, phone, address }) => {
 
 export default function CheckoutPage() {
   usePageTitle('Thanh toán');
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { items, totalPrice, loading, clearLocal } = useCart();
   const placedRef = useRef(false);
@@ -99,9 +100,10 @@ export default function CheckoutPage() {
         console.warn('[Checkout] Một số request cập nhật kho/giỏ hàng thất bại:', failed.map((f) => f.reason));
       }
 
+      // Bước 5 – Chuyển trang kèm thông báo
       placedRef.current = true;
+      navigate('/orders', { state: { message: `Đặt hàng thành công! Mã đơn #${order.id}` } });
       clearLocal();
-      // TODO: Commit 4 sẽ redirect
     } catch (err) {
       setError(getErrorMessage(err));
       setPlacing(false);
