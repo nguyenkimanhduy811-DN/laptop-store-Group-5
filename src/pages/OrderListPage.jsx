@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Badge, Button, Card, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import orderApi from '../api/orderApi';
+import laptopApi from '../api/laptopApi';
+import { getErrorMessage } from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import useAxios from '../hooks/useAxios';
 import usePageTitle from '../hooks/usePageTitle';
 import { formatDateTime, formatPrice } from '../utils/format';
@@ -9,15 +13,48 @@ import { getStatus } from '../utils/orderStatus';
 import Loading from '../components/common/Loading';
 import ErrorAlert from '../components/common/ErrorAlert';
 import EmptyState from '../components/common/EmptyState';
+import ConfirmModal from '../components/common/ConfirmModal';
 
 /** G4. Đơn hàng của khách (Toast "Đặt hàng thành công" do useFlashMessage ở MainLayout hiển thị) */
 export default function OrderListPage() {
   usePageTitle('Đơn hàng của tôi');
   const { user } = useAuth();
-  const { data: orders, loading, error, refetch } = useAxios(
+  const { showToast } = useToast();
+  const { data: orders, loading, error, refetch, setData } = useAxios(
     (signal) => orderApi.getByUser(user.id, signal),
     [user.id]
   );
+  const [orderToCancel, setOrderToCancel] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+
+  /** BR-05. Hủy đơn: PATCH status + cộng lại tồn kho cho từng laptop (song song) */
+  const confirmCancel = async () => {
+    const order = orderToCancel;
+    setCancelling(true);
+    try {
+      const updated = await orderApi.updateStatus(order.id, 'cancelled');
+
+      const results = await Promise.allSettled(
+        order.items.map(async (item) => {
+          const laptop = await laptopApi.getById(item.laptopId); // lấy tồn kho mới nhất
+          return laptopApi.patch(item.laptopId, {
+            stock: laptop.stock + item.quantity,
+            sold: Math.max(0, laptop.sold - item.quantity),
+          });
+        })
+      );
+      const failed = results.filter((r) => r.status === 'rejected');
+      if (failed.length > 0) console.warn('[Order] Hoàn kho thất bại:', failed.map((f) => f.reason));
+
+      setData((list) => list.map((o) => (o.id === order.id ? updated : o)));
+      showToast(`Đã hủy đơn #${order.id}`, 'info');
+    } catch (err) {
+      showToast(getErrorMessage(err), 'danger');
+    } finally {
+      setCancelling(false);
+      setOrderToCancel(null);
+    }
+  };
 
   if (loading) return <Loading text="Đang tải đơn hàng..." />;
   if (error) return <ErrorAlert message={error} onRetry={refetch} />;
@@ -69,12 +106,28 @@ export default function OrderListPage() {
                   <span>
                     Tổng: <strong className="text-danger">{formatPrice(order.total)}</strong>
                   </span>
+                  {order.status === 'pending' && (
+                    <Button size="sm" variant="outline-danger" onClick={() => setOrderToCancel(order)}>
+                      Hủy đơn
+                    </Button>
+                  )}
                 </div>
               </Card.Footer>
             </Card>
           );
         })
       )}
+
+      <ConfirmModal
+        show={Boolean(orderToCancel)}
+        title="Hủy đơn hàng"
+        message={orderToCancel && `Bạn có chắc muốn hủy đơn #${orderToCancel.id}?`}
+        confirmText="Hủy đơn"
+        cancelText="Không"
+        loading={cancelling}
+        onConfirm={confirmCancel}
+        onCancel={() => setOrderToCancel(null)}
+      />
     </>
   );
 }
